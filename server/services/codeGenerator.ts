@@ -31,14 +31,8 @@ export class CodeGenerator {
   }
   
   static async generateMultipleCodes(count: number, assignedToUserId: string): Promise<string[]> {
-    const codes: string[] = [];
-    
-    for (let i = 0; i < count; i++) {
-      const code = await this.generateUniqueCode();
-      codes.push(code);
-    }
-    
-    await storage.generateInvitationCodes(assignedToUserId, count);
-    return codes;
+    // Generate and persist codes to database, then return the actual persisted codes
+    const createdCodes = await storage.generateInvitationCodes(assignedToUserId, count);
+    return createdCodes.map(code => code.code);
   }
 }

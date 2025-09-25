@@ -18,21 +18,29 @@ import { eq, desc, sql, and, count, isNull, gt } from "drizzle-orm";
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
+  getUserById(id: string): Promise<User | undefined>; // Alias for getUser
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByInvitationCode(code: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  getAllUsers(): Promise<User[]>;
   
   // Invitation code operations
   generateInvitationCodes(assignedToUserId: string, codeCount: number): Promise<InvitationCode[]>;
+  createInvitationCodes(codes: { code: string; userId: string }[]): Promise<InvitationCode[]>; // Alias for generateInvitationCodes
   validateInvitationCode(code: string): Promise<InvitationCode | undefined>;
   useInvitationCode(code: string, usedByUserId: string): Promise<boolean>;
+  markInvitationCodeAsUsed(code: string): Promise<void>; // Alias for useInvitationCode
   getInvitationCodesByUser(userId: string): Promise<InvitationCode[]>;
+  getUserInvitationCodes(userId: string): Promise<InvitationCode[]>; // Alias for getInvitationCodesByUser
   getAllInvitationCodes(): Promise<InvitationCode[]>;
+  getUsedCodes(userId: string): Promise<InvitationCode[]>;
   reserveInvitationCode(userId: string, email: string): Promise<InvitationCode | null>;
   getAvailableCodeForUser(userId: string): Promise<InvitationCode | null>;
   
   // Waitlist operations
   addToWaitlist(waitlistData: InsertWaitlist): Promise<Waitlist>;
   getWaitlist(): Promise<Waitlist[]>;
+  findWaitlistByEmail(email: string): Promise<Waitlist | undefined>;
   promoteFromWaitlist(id: string): Promise<boolean>;
   updateWaitlistPriority(id: string, priorityScore: number, adminNotes?: string): Promise<boolean>;
   
@@ -69,7 +77,13 @@ export class DatabaseStorage implements IStorage {
         updatedAt: new Date(),
       })
       .returning();
-    return result[0];
+    
+    const createdUser = result[0];
+    if (!createdUser) {
+      throw new Error('Failed to create user');
+    }
+    
+    return createdUser as User;
   }
 
   async generateInvitationCodes(assignedToUserId: string, codeCount: number): Promise<InvitationCode[]> {
@@ -90,7 +104,7 @@ export class DatabaseStorage implements IStorage {
       .values(codes)
       .returning();
     
-    return createdCodes;
+    return createdCodes as InvitationCode[];
   }
 
   private generateUniqueCode(): string {
@@ -210,12 +224,12 @@ export class DatabaseStorage implements IStorage {
       RETURNING i.*
     `);
     
-    return result.rows?.[0] || null;
+    return (result.rows?.[0] as InvitationCode) || null;
   }
 
   async addToWaitlist(waitlistData: InsertWaitlist): Promise<Waitlist> {
-    // Calculate priority score based on company size and role
-    const priorityScore = this.calculatePriorityScore(waitlistData.companySize, waitlistData.role);
+    // Calculate priority score based on company revenue and role
+    const priorityScore = this.calculatePriorityScore(waitlistData.companyRevenue, waitlistData.role);
     
     const [waitlistEntry] = await db
       .insert(waitlist)
@@ -228,24 +242,24 @@ export class DatabaseStorage implements IStorage {
     return waitlistEntry;
   }
 
-  private calculatePriorityScore(companySize: string, role: string): number {
+  private calculatePriorityScore(companyRevenue: string, role: string): number {
     let score = 0;
     
-    // Company size scoring
-    switch (companySize) {
-      case '1000+':
+    // Company revenue scoring
+    switch (companyRevenue) {
+      case '$5mi+':
         score += 50;
         break;
-      case '201-1000':
+      case '$3mi-$5mi':
         score += 40;
         break;
-      case '51-200':
+      case '$1mi-$3mi':
         score += 30;
         break;
-      case '11-50':
+      case '$500k-$1mi':
         score += 20;
         break;
-      case '1-10':
+      case '$100k-$500k':
         score += 10;
         break;
     }
@@ -348,6 +362,78 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.invitedBy, userId))
       .orderBy(desc(users.createdAt));
+  }
+
+  // Additional methods required by API
+  async getUserById(id: string): Promise<User | undefined> {
+    return this.getUser(id); // Alias for getUser
+  }
+
+  async getUserByInvitationCode(code: string): Promise<User | undefined> {
+    const inviteCode = await this.validateInvitationCode(code);
+    if (!inviteCode?.assignedToUserId) {
+      return undefined;
+    }
+    return this.getUser(inviteCode.assignedToUserId);
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .orderBy(desc(users.createdAt));
+  }
+
+  async createInvitationCodes(codes: { code: string; userId: string }[]): Promise<InvitationCode[]> {
+    const insertCodes: InsertInvitationCode[] = codes.map(({ code, userId }) => ({
+      code,
+      assignedToUserId: userId,
+      isUsed: false,
+      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
+    }));
+
+    const createdCodes = await db
+      .insert(invitationCodes)
+      .values(insertCodes)
+      .returning();
+    
+    return createdCodes;
+  }
+
+  async markInvitationCodeAsUsed(code: string): Promise<void> {
+    await db
+      .update(invitationCodes)
+      .set({
+        isUsed: true,
+        usedAt: new Date(),
+      })
+      .where(eq(invitationCodes.code, code.toUpperCase()));
+  }
+
+  async getUserInvitationCodes(userId: string): Promise<InvitationCode[]> {
+    return this.getInvitationCodesByUser(userId); // Alias
+  }
+
+  async getUsedCodes(userId: string): Promise<InvitationCode[]> {
+    return await db
+      .select()
+      .from(invitationCodes)
+      .where(
+        and(
+          eq(invitationCodes.assignedToUserId, userId),
+          eq(invitationCodes.isUsed, true)
+        )
+      )
+      .orderBy(desc(invitationCodes.usedAt));
+  }
+
+  async findWaitlistByEmail(email: string): Promise<Waitlist | undefined> {
+    const [entry] = await db
+      .select()
+      .from(waitlist)
+      .where(eq(waitlist.email, email));
+    
+    return entry;
   }
 }
 

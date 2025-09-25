@@ -1,0 +1,64 @@
+09:07:02.798 
+api/[...route].ts(190,40): error TS2551: Property 'getUserByInvitationCode' does not exist on type 'DatabaseStorage'. Did you mean 'useInvitationCode'?
+09:07:02.798 
+api/[...route].ts(191,11): error TS2322: Type '{ invitationCode: any; referredBy: any; inviteCode: string; firstName: string; lastName: string; email: string; company: string; companyRevenue: "$100k-$500k" | "$500k-$1mi" | "$1mi-$3mi" | "$3mi-$5mi" | "$5mi+"; role: string; companyWebsite?: string | undefined; }' is not assignable to type '{ [x: string]: [any, ...any[]] | unknown[] | null | undefined; [x: number]: [any, ...any[]] | unknown[] | null | undefined; }'.
+09:07:02.798 
+  Property 'inviteCode' is incompatible with index signature.
+09:07:02.798 
+    Type 'string' is not assignable to type '[any, ...any[]] | unknown[] | null | undefined'.
+09:07:02.799 
+api/[...route].ts(199,19): error TS2339: Property 'markInvitationCodeAsUsed' does not exist on type 'DatabaseStorage'.
+09:07:02.799 
+api/[...route].ts(201,42): error TS2339: Property 'generateCodes' does not exist on type 'typeof CodeGenerator'.
+09:07:02.799 
+api/[...route].ts(202,19): error TS2551: Property 'createInvitationCodes' does not exist on type 'DatabaseStorage'. Did you mean 'generateInvitationCodes'?
+09:07:02.799 
+api/[...route].ts(202,54): error TS7006: Parameter 'code' implicitly has an 'any' type.
+09:07:02.799 
+api/[...route].ts(207,37): error TS2551: Property 'getUserInvitationCodes' does not exist on type 'DatabaseStorage'. Did you mean 'useInvitationCode'?
+09:07:02.799 
+api/[...route].ts(209,24): error TS2339: Property 'validatedCode' does not exist on type 'Session & Partial<SessionData>'.
+09:07:02.799 
+api/[...route].ts(219,38): error TS7006: Parameter 'c' implicitly has an 'any' type.
+09:07:02.799 
+api/[...route].ts(235,34): error TS2339: Property 'getUserById' does not exist on type 'DatabaseStorage'.
+09:07:02.800 
+api/[...route].ts(237,37): error TS2551: Property 'getUserInvitationCodes' does not exist on type 'DatabaseStorage'. Did you mean 'useInvitationCode'?
+09:07:02.800 
+api/[...route].ts(238,41): error TS2339: Property 'getUsedCodes' does not exist on type 'DatabaseStorage'.
+09:07:02.800 
+api/[...route].ts(249,38): error TS7006: Parameter 'c' implicitly has an 'any' type.
+09:07:02.803 
+api/[...route].ts(287,35): error TS2554: Expected 2 arguments, but got 1.
+09:07:02.803 
+api/[...route].ts(301,41): error TS2339: Property 'findWaitlistByEmail' does not exist on type 'DatabaseStorage'.
+09:07:02.803 
+api/[...route].ts(325,7): error TS2353: Object literal may only specify known properties, and 'priorityScore' does not exist in type '{ firstName: string; lastName: string; email: string; company: string; companyRevenue: string; role: string; motivation: string; companyWebsite?: string | null | undefined; adminNotes?: string | null | undefined; }'.
+09:07:02.803 
+api/[...route].ts(342,33): error TS2339: Property 'getAllUsers' does not exist on type 'DatabaseStorage'.
+09:07:02.803 
+api/[...route].ts(371,33): error TS2339: Property 'getAllUsers' does not exist on type 'DatabaseStorage'.
+09:07:02.803 
+09:07:03.292 
+server/storage.ts(72,12): error TS7053: Element implicitly has an 'any' type because expression of type '0' can't be used to index type 'any[] | QueryResult<never>'.
+09:07:03.293 
+  Property '0' does not exist on type 'any[] | QueryResult<never>'.
+09:07:03.293 
+server/storage.ts(213,5): error TS2740: Type 'Record<string, unknown>' is missing the following properties from type '{ code: string; id: string; assignedToUserId: string | null; usedByUserId: string | null; isUsed: boolean; expiresAt: Date | null; reservedForEmail: string | null; reservedAt: Date | null; createdAt: Date; usedAt: Date | null; }': code, id, assignedToUserId, usedByUserId, and 6 more.
+09:07:03.294 
+server/storage.ts(218,68): error TS2339: Property 'companySize' does not exist on type '{ firstName: string; lastName: string; email: string; company: string; companyRevenue: string; role: string; motivation: string; companyWebsite?: string | null | undefined; adminNotes?: string | null | undefined; }'.
+09:07:03.294 
+09:07:05.640 
+Build Completed in /vercel/output [19s]
+09:07:05.866 
+Deploying outputs...
+09:07:12.510 
+Deployment completed
+09:07:13.467 
+Creating build cache...
+09:07:32.092 
+Created build cache: 18.625s
+09:07:32.093 
+Uploading build cache [79.98 MB]
+09:07:33.012 
+Build cache uploaded: 919ms

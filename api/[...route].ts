@@ -146,7 +146,9 @@ app.post("/validate-code", codeValidationLimiter, async (req, res) => {
     const isValid = await storage.validateInvitationCode(code);
     
     if (isValid) {
-      req.session.validatedCode = code;
+      if (req.session) {
+        (req.session as any).validatedCode = code;
+      }
       res.json({ valid: true, message: "Code validated successfully" });
     } else {
       res.status(400).json({ error: "Invalid or expired invitation code" });
@@ -160,7 +162,7 @@ app.post("/validate-code", codeValidationLimiter, async (req, res) => {
 // Registration endpoint
 app.post("/register", async (req, res) => {
   try {
-    const validatedCode = req.session.validatedCode;
+    const validatedCode = (req.session as any)?.validatedCode;
     
     if (!validatedCode) {
       return res.status(400).json({ error: "No validated code in session. Please validate your invitation code first." });
@@ -178,7 +180,9 @@ app.post("/register", async (req, res) => {
 
     const isCodeStillValid = await storage.validateInvitationCode(validatedCode);
     if (!isCodeStillValid) {
-      delete req.session.validatedCode;
+      if (req.session) {
+        (req.session as any).validatedCode = undefined;
+      }
       return res.status(400).json({ error: "Invitation code has expired or been used" });
     }
 
@@ -189,24 +193,26 @@ app.post("/register", async (req, res) => {
 
     const referrerUser = await storage.getUserByInvitationCode(validatedCode);
     const newUserData: InsertUser = {
-      ...registrationData,
-      invitationCode: validatedCode,
-      referredBy: referrerUser?.id || null
+      firstName: registrationData.firstName,
+      lastName: registrationData.lastName,
+      email: registrationData.email,
+      company: registrationData.company,
+      companyRevenue: registrationData.companyRevenue,
+      role: registrationData.role,
+      companyWebsite: registrationData.companyWebsite,
+      invitedBy: referrerUser?.id || null
     };
 
     const newUser = await storage.createUser(newUserData);
 
-    await storage.markInvitationCodeAsUsed(validatedCode);
+    await storage.useInvitationCode(validatedCode, newUser.id);
 
-    const newCodes = await CodeGenerator.generateCodes(5);
-    await storage.createInvitationCodes(newCodes.map(code => ({
-      code,
-      userId: newUser.id
-    })));
-
-    const userCodes = await storage.getUserInvitationCodes(newUser.id);
+    const newCodes = await CodeGenerator.generateMultipleCodes(5, newUser.id);
+    // generateMultipleCodes now returns the actual persisted codes
     req.session.userId = newUser.id;
-    delete req.session.validatedCode;
+    if (req.session) {
+      (req.session as any).validatedCode = undefined;
+    }
 
     res.status(201).json({
       message: "Registration successful",
@@ -216,7 +222,7 @@ app.post("/register", async (req, res) => {
         lastName: newUser.lastName,
         email: newUser.email
       },
-      invitationCodes: userCodes.map(c => c.code)
+      invitationCodes: newCodes
     });
 
   } catch (error) {
@@ -284,7 +290,12 @@ app.post("/logout", (req, res) => {
 app.post("/waitlist", waitlistLimiter, async (req, res) => {
   try {
     const recaptchaToken = req.body.recaptchaToken;
-    if (!recaptchaToken || !await verifyRecaptcha(recaptchaToken)) {
+    if (!recaptchaToken) {
+      return res.status(400).json({ error: "reCAPTCHA token is required" });
+    }
+    
+    const recaptchaValid = await verifyRecaptcha(recaptchaToken);
+    if (!recaptchaValid) {
       return res.status(400).json({ error: "reCAPTCHA verification failed" });
     }
 
@@ -320,10 +331,7 @@ app.post("/waitlist", waitlistLimiter, async (req, res) => {
       }
     }
 
-    await storage.addToWaitlist({
-      ...waitlistData,
-      priorityScore
-    });
+    await storage.addToWaitlist(waitlistData);
 
     res.status(201).json({
       message: "Successfully added to waitlist",
