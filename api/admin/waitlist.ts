@@ -34,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       // Export as CSV
       const csvHeader = 'First Name,Last Name,Email,Company,Company Revenue,Role,Website,Motivation,Priority Score,Created At\n';
       const csvRows = waitlistData.map(entry => 
-        `"${entry.firstName}","${entry.lastName}","${entry.email}","${entry.company}","${entry.companyRevenue}","${entry.role}","${entry.companyWebsite || ''}","${entry.motivation.replace(/"/g, '""')}",${entry.priorityScore},"${entry.createdAt}"`
+        `"${entry.firstName}","${entry.lastName}","${entry.email}","${entry.company}","${entry.companyRevenue || entry.companySize}","${entry.role}","${entry.linkedinUrl || ''}","${entry.motivation.replace(/"/g, '""')}",${entry.priorityScore},"${entry.createdAt}"`
       ).join('\n');
       
       const csv = csvHeader + csvRows;
