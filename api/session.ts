@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../server/storage';
 
 // Helper function to parse cookies
 function parseCookies(cookieHeader?: string) {
@@ -25,37 +24,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = cookies.userId;
     const isAdmin = cookies.isAdmin === 'true';
     
-    if (userId) {
-      const user = await storage.getUserById(userId);
-      if (user) {
-        const codes = await storage.getUserInvitationCodes(userId);
-        const usedCodes = await storage.getUsedCodes(userId);
-        const stats = await storage.getStats();
-
-        return res.json({
-          authenticated: true,
-          isAdmin,
-          user: {
-            id: user.id,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email,
-            company: user.company,
-            role: user.role,
-            status: 'active',
-            createdAt: user.createdAt || new Date().toISOString(),
-            updatedAt: user.updatedAt || new Date().toISOString()
-          },
-          inviteCodes: codes,
-          referrals: [],
-          stats
-        });
-      }
-    }
-
+    // Debug logging for development
+    console.log('Session check - cookies:', cookies);
+    console.log('Session check - userId:', userId, 'isAdmin:', isAdmin);
+    
+    // For now, just return basic session info based on cookies
+    // User data fetching can be handled separately by individual endpoints
     res.json({ 
-      authenticated: false,
-      isAdmin: false
+      authenticated: !!userId || isAdmin,
+      isAdmin: isAdmin
     });
   } catch (error) {
     console.error("Session check error:", error);

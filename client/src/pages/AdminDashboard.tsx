@@ -61,26 +61,31 @@ export default function AdminDashboard() {
   });
 
   useEffect(() => {
-    if (authData?.isAdmin) {
-      setIsAuthenticated(true);
-    } else if (authData === undefined && !authLoading) {
-      setIsAuthenticated(false);
+    if (!authLoading) {
+      if (authData?.isAdmin === true) {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
     }
   }, [authData, authLoading]);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['/api/admin/dashboard'],
     retry: false,
+    enabled: isAuthenticated === true,
   });
 
   const { data: waitlistData, isLoading: waitlistLoading } = useQuery({
     queryKey: ['/api/admin/waitlist'],
     retry: false,
+    enabled: isAuthenticated === true,
   });
 
   const { data: codes } = useQuery({
     queryKey: ['/api/admin/codes'],
     retry: false,
+    enabled: isAuthenticated === true,
   });
 
   const promoteUserMutation = useMutation({
