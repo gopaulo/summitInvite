@@ -434,4 +434,4 @@ app.use((err: any, req: any, res: any, next: any) => {
 });
 
 // Export serverless handler
-export default serverless(app);
+export default serverless(app, { basePath: '/api' });
