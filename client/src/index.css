@@ -1,0 +1,161 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Summit 25 Brand Colors */
+  --summit-primary: hsl(210, 29%, 24%);      /* #2C3E50 */
+  --summit-secondary: hsl(210, 22%, 28%);    /* #34495E */
+  --summit-accent: hsl(202, 71%, 62%);       /* #5DADE2 */
+  --summit-silver: hsl(210, 14%, 73%);       /* #BDC3C7 */
+  --summit-white: hsl(0, 0%, 100%);          /* #FFFFFF */
+  
+  /* Semantic colors based on Summit 25 palette */
+  --background: hsl(210, 40%, 98%);
+  --foreground: hsl(210, 40%, 15%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(210, 40%, 15%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(210, 40%, 15%);
+  --primary: hsl(210, 29%, 24%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(210, 22%, 28%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(210, 14%, 73%);
+  --muted-foreground: hsl(210, 40%, 45%);
+  --accent: hsl(202, 71%, 62%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(210, 20%, 82%);
+  --input: hsl(210, 20%, 95%);
+  --ring: hsl(202, 71%, 62%);
+  --chart-1: hsl(202, 71%, 62%);
+  --chart-2: hsl(160, 60%, 45%);
+  --chart-3: hsl(30, 80%, 55%);
+  --chart-4: hsl(280, 65%, 60%);
+  --chart-5: hsl(340, 75%, 55%);
+  
+  --radius: 8px;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.dark {
+  --background: hsl(210, 40%, 8%);
+  --foreground: hsl(210, 40%, 90%);
+  --card: hsl(210, 30%, 12%);
+  --card-foreground: hsl(210, 40%, 90%);
+  --popover: hsl(210, 30%, 12%);
+  --popover-foreground: hsl(210, 40%, 90%);
+  --primary: hsl(202, 71%, 62%);
+  --primary-foreground: hsl(210, 29%, 24%);
+  --secondary: hsl(210, 20%, 20%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(210, 20%, 25%);
+  --muted-foreground: hsl(210, 20%, 65%);
+  --accent: hsl(202, 71%, 62%);
+  --accent-foreground: hsl(210, 29%, 24%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(210, 20%, 25%);
+  --input: hsl(210, 20%, 18%);
+  --ring: hsl(202, 71%, 62%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer components {
+  /* Summit 25 custom components */
+  .summit-hero {
+    background: linear-gradient(135deg, var(--summit-primary) 0%, var(--summit-secondary) 100%);
+  }
+  
+  .summit-hero-overlay {
+    background: url('https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&h=1080') center/cover;
+    opacity: 0.2;
+  }
+  
+  .summit-btn-primary {
+    @apply bg-gradient-to-r from-summit-primary to-summit-secondary text-white font-semibold px-6 py-3 rounded-lg transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5;
+  }
+  
+  .summit-btn-accent {
+    @apply bg-gradient-to-r from-accent to-blue-500 text-white font-semibold px-6 py-3 rounded-lg transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5;
+  }
+  
+  .summit-card {
+    @apply bg-card rounded-xl shadow-lg border border-border backdrop-blur-sm transition-all duration-300 hover:shadow-xl;
+  }
+  
+  .summit-input {
+    @apply w-full px-4 py-3 bg-input border border-border rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition-all duration-200;
+  }
+  
+  .summit-code-input {
+    @apply summit-input font-mono text-xl font-bold tracking-widest text-center uppercase;
+  }
+  
+  .floating-label {
+    @apply relative;
+  }
+  
+  .floating-label input:focus + label,
+  .floating-label input:not(:placeholder-shown) + label {
+    @apply -translate-y-6 scale-85 text-accent;
+  }
+  
+  .floating-label label {
+    @apply absolute left-3 top-3 transition-all duration-200 pointer-events-none text-muted-foreground;
+  }
+  
+  .priority-badge-high {
+    @apply bg-gradient-to-r from-red-500 to-red-600 text-white px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .priority-badge-medium {
+    @apply bg-gradient-to-r from-yellow-500 to-yellow-600 text-white px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .priority-badge-low {
+    @apply bg-gradient-to-r from-green-500 to-green-600 text-white px-3 py-1 rounded-full text-sm font-medium;
+  }
+  
+  .stats-card {
+    @apply summit-card bg-gradient-to-br from-card to-card;
+  }
+}
+
+@layer utilities {
+  .text-summit-primary {
+    color: var(--summit-primary);
+  }
+  
+  .text-summit-secondary {
+    color: var(--summit-secondary);
+  }
+  
+  .text-summit-accent {
+    color: var(--summit-accent);
+  }
+  
+  .bg-summit-primary {
+    background-color: var(--summit-primary);
+  }
+  
+  .bg-summit-secondary {
+    background-color: var(--summit-secondary);
+  }
+  
+  .bg-summit-accent {
+    background-color: var(--summit-accent);
+  }
+}

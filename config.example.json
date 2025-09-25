@@ -1,0 +1,31 @@
+{
+  "database": {
+    "url": "postgresql://username:password@host:port/database_name",
+    "host": "your-postgres-host.com",
+    "port": 5432,
+    "database": "summit25_production",
+    "username": "your_username",
+    "password": "your_password"
+  },
+  "security": {
+    "sessionSecret": "your-super-secure-session-secret-at-least-32-characters-long",
+    "recaptcha": {
+      "siteKey": "your-recaptcha-site-key",
+      "secretKey": "your-recaptcha-secret-key"
+    }
+  },
+  "email": {
+    "brevoApiKey": "your-brevo-api-key",
+    "senderEmail": "info@yourdomain.com",
+    "senderName": "Your Company Name"
+  },
+  "application": {
+    "port": 5000,
+    "nodeEnv": "production",
+    "domain": "yourdomain.com"
+  },
+  "admin": {
+    "username": "admin",
+    "password": "your-secure-admin-password"
+  }
+}
