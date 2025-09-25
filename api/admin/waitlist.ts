@@ -27,8 +27,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ error: "Admin access required" });
     }
 
-    const waitlist = await storage.getWaitlist();
-    res.json(waitlist);
+    const { export: exportType } = req.query;
+    const waitlistData = await storage.getWaitlist();
+
+    if (exportType === 'csv') {
+      // Export as CSV
+      const csvHeader = 'First Name,Last Name,Email,Company,Company Revenue,Role,Website,Motivation,Priority Score,Created At\n';
+      const csvRows = waitlistData.map(entry => 
+        `"${entry.firstName}","${entry.lastName}","${entry.email}","${entry.company}","${entry.companyRevenue}","${entry.role}","${entry.companyWebsite || ''}","${entry.motivation.replace(/"/g, '""')}",${entry.priorityScore},"${entry.createdAt}"`
+      ).join('\n');
+      
+      const csv = csvHeader + csvRows;
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="summit25-waitlist.csv"');
+      res.send(csv);
+    } else {
+      // Return JSON data
+      res.json(waitlistData);
+    }
   } catch (error) {
     console.error("Admin waitlist error:", error);
     res.status(500).json({ error: "Failed to load waitlist" });

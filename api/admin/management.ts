@@ -27,10 +27,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(401).json({ error: "Admin access required" });
     }
 
-    const codes = await storage.getAllInvitationCodes();
-    res.json(codes);
+    const { type } = req.query;
+
+    if (type === 'codes') {
+      const codes = await storage.getAllInvitationCodes();
+      res.json(codes);
+    } else if (type === 'users') {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } else {
+      res.status(400).json({ error: "Invalid type. Use ?type=codes or ?type=users" });
+    }
   } catch (error) {
-    console.error("Admin codes error:", error);
-    res.status(500).json({ error: "Failed to load invitation codes" });
+    console.error("Admin management error:", error);
+    res.status(500).json({ error: "Failed to load data" });
   }
 }

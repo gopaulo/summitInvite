@@ -84,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Sanitize personal message to prevent HTML injection
     const sanitizedMessage = personalMessage ? 
-      personalMessage.replace(/[<>"'&]/g, (match) => {
+      personalMessage.replace(/[<>"'&]/g, (match: string) => {
         const entities = { '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '&': '&amp;' };
         return entities[match as keyof typeof entities] || match;
       }) : '';
