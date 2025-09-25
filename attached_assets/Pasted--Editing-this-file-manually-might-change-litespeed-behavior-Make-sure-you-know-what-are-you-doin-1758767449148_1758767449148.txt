@@ -1,0 +1,64 @@
+# Editing this file manually might change litespeed behavior,
+# Make sure you know what are you doing
+index  {
+  useServer               0
+  indexFiles index.php,index.html
+}
+
+scripthandler  {
+  add                     lsapi:summit-invite php
+}
+
+extprocessor nodejs {
+    type                    proxy
+    address                 127.0.0.1:5000
+    maxConns                35
+    initTimeout             60
+    retryTimeout            0
+}
+extprocessor summit-invite {
+  type                    lsapi
+  address                 UDS://tmp/lshttpd/summit-invite.sock
+  maxConns                35
+  env                     PHP_LSAPI_MAX_REQUESTS=5000
+  env                     PHP_LSAPI_CHILDREN=35
+  initTimeout             60
+  retryTimeout            0
+  persistConn             1
+  respBuffer              0
+  autoStart               2
+  backlog                 100
+  instances               1
+  extUser                 runcloud
+  extGroup                runcloud
+  runOnStartUp            3
+  priority                0
+  memSoftLimit            2047M
+  memHardLimit            2047M
+  procSoftLimit           400
+  procHardLimit           500
+  #do not edit lines below, it will break runcloud system, use web app settings instead 
+  path                    /usr/local/lsws/lsphp81/bin/lsphp
+  env                     PHP_INI_SCAN_DIR=/home/runcloud/lsphp/summit-invite:/usr/local/lsws/lsphp81/etc/php/8.1/mods-available
+  #end of lines
+}
+
+expires {
+  enableExpires           1
+  expiresByType           image/*=A43200,text/css=A43200,application/x-javascript=A43200,text/javascript=A43200,font/*=A43200,application/x-font-ttf=A43200
+}
+
+errorlog /home/runcloud/logs/summit-invite_error.log {
+  useServer               0
+  logLevel                ERROR
+  rollingSize             10M
+}
+
+accesslog /home/runcloud/logs/summit-invite_access.log {
+  useServer               0
+  logFormat               %a %l %u %t "%r" %>s %O "%{Referer}i" "%{User-Agent}i"
+  logHeaders              5
+  rollingSize             10M
+  keepDays                30  
+  compressArchive         1
+}
