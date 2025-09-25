@@ -1,5 +1,11 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { storage } from '../server/storage';
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { invitationCodes } from '../shared/schema';
+import { eq } from "drizzle-orm";
+import ws from "ws";
+
+neonConfig.webSocketConstructor = ws;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -7,13 +13,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL must be set");
+    }
+
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const db = drizzle(pool);
+
     const { code } = req.body;
     
     if (!code) {
       return res.status(400).json({ error: "Invitation code is required" });
     }
 
-    const isValid = await storage.validateInvitationCode(code);
+    // Validate invitation code
+    const [inviteCode] = await db
+      .select()
+      .from(invitationCodes)
+      .where(eq(invitationCodes.code, code.toUpperCase()));
+    
+    const isValid = inviteCode && !inviteCode.isUsed && 
+      (!inviteCode.expiresAt || new Date() < inviteCode.expiresAt);
     
     if (isValid) {
       // Set validation cookie

@@ -1,5 +1,9 @@
-import { InsertEmailLog } from "@shared/schema";
-import { storage } from "../storage";
+import { InsertEmailLog, emailLogs } from "@shared/schema";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import ws from "ws";
+
+neonConfig.webSocketConstructor = ws;
 
 interface EmailParams {
   to: string;
@@ -77,16 +81,29 @@ class EmailService {
   }
 
   private async logEmail(params: EmailParams, status: string, errorMessage?: string) {
-    const emailLog: InsertEmailLog = {
-      toEmail: params.to,
-      fromEmail: this.senderEmail,
-      subject: params.subject,
-      templateType: params.templateType,
-      status,
-      errorMessage,
-    };
+    try {
+      if (!process.env.DATABASE_URL) {
+        console.warn('DATABASE_URL not set - cannot log email');
+        return;
+      }
 
-    await storage.logEmail(emailLog);
+      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+      const db = drizzle(pool);
+      
+      const emailLog: InsertEmailLog = {
+        toEmail: params.to,
+        fromEmail: this.senderEmail,
+        subject: params.subject,
+        templateType: params.templateType,
+        status,
+        errorMessage,
+      };
+
+      await db.insert(emailLogs).values(emailLog);
+    } catch (error) {
+      console.error('Failed to log email:', error);
+      // Don't throw - logging failure shouldn't break email sending
+    }
   }
 
   private getEmailTemplate(templateType: string, variables: Record<string, string>): string {
