@@ -294,7 +294,7 @@ app.post("/waitlist", waitlistLimiter, async (req, res) => {
       return res.status(400).json({ error: "reCAPTCHA token is required" });
     }
     
-    const recaptchaValid = await verifyRecaptcha(recaptchaToken);
+    const recaptchaValid = await verifyRecaptcha(recaptchaToken, "waitlist");
     if (!recaptchaValid) {
       return res.status(400).json({ error: "reCAPTCHA verification failed" });
     }
