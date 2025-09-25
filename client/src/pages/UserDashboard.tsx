@@ -78,7 +78,7 @@ export default function UserDashboard() {
       setEmailInput("");
       setPersonalMessage("");
       // Invalidate cache to refresh dashboard with updated code status
-      queryClient.invalidateQueries({ queryKey: ['/api/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/session'] });
     },
     onError: (error: any) => {
       toast({
@@ -90,7 +90,7 @@ export default function UserDashboard() {
   });
 
   const { data, isLoading, error } = useQuery<DashboardData>({
-    queryKey: ['/api/me'],
+    queryKey: ['/api/session'],
     retry: false,
   });
 

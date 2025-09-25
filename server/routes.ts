@@ -74,18 +74,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin logout endpoint
-  app.post("/api/admin/logout", async (req, res) => {
+  // Logout endpoint (unified)
+  app.post("/api/logout", async (req, res) => {
     req.session.isAdmin = false;
+    req.session.userId = undefined;
     res.json({ success: true, message: "Logged out" });
   });
 
-  // Check admin authentication status
-  app.get("/api/admin/me", async (req, res) => {
-    if (req.session?.isAdmin) {
-      res.json({ isAdmin: true });
-    } else {
-      res.status(401).json({ error: "Not authenticated as admin" });
+  // Session status endpoint (unified)
+  app.get("/api/session", async (req, res) => {
+    try {
+      const userId = req.session?.userId;
+      const isAdmin = req.session?.isAdmin || false;
+      
+      if (userId) {
+        const user = await storage.getUser(userId);
+        if (user) {
+          const codes = await storage.getInvitationCodesByUser(userId);
+          const referrals = await storage.getReferralTree(userId);
+          const stats = await storage.getStats();
+
+          return res.json({
+            authenticated: true,
+            isAdmin,
+            user: {
+              id: user.id,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              email: user.email,
+              company: user.company,
+              role: user.role,
+              status: 'active',
+              createdAt: user.createdAt || new Date().toISOString(),
+              updatedAt: user.updatedAt || new Date().toISOString()
+            },
+            inviteCodes: codes,
+            referrals,
+            stats
+          });
+        }
+      }
+
+      res.json({ 
+        authenticated: false,
+        isAdmin: isAdmin
+      });
+    } catch (error) {
+      console.error("Session check error:", error);
+      res.status(500).json({ error: "Failed to check session" });
     }
   });
 
@@ -328,14 +364,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin routes
-  app.get("/api/admin/stats", adminAuth, async (req, res) => {
+  // Admin dashboard endpoint
+  app.get("/api/admin/dashboard", adminAuth, async (req, res) => {
     try {
-      const stats = await storage.getStats();
-      res.json(stats);
+      const users = await storage.getAllUsers();
+      const waitlist = await storage.getWaitlist();
+      const codes = await storage.getAllInvitationCodes();
+      
+      const totalUsers = users.length;
+      const totalWaitlist = waitlist.length;
+      const totalCodes = codes.length;
+      const usedCodes = codes.filter(c => c.isUsed).length;
+      const availableCodes = totalCodes - usedCodes;
+      
+      res.json({
+        totalRegistered: totalUsers,
+        activeCodes: availableCodes,
+        waitlistCount: totalWaitlist,
+        totalReferrals: usedCodes,
+        recentUsers: users.slice(-5).reverse(),
+        recentWaitlist: waitlist.slice(-5).reverse()
+      });
     } catch (error) {
-      console.error("Stats error:", error);
-      res.status(500).json({ error: "Failed to fetch stats" });
+      console.error("Admin dashboard error:", error);
+      res.status(500).json({ error: "Failed to load dashboard" });
     }
   });
 
@@ -344,8 +396,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const waitlistData = await storage.getWaitlist();
       res.json(waitlistData);
     } catch (error) {
-      console.error("Waitlist fetch error:", error);
-      res.status(500).json({ error: "Failed to fetch waitlist" });
+      console.error("Admin waitlist error:", error);
+      res.status(500).json({ error: "Failed to load waitlist" });
     }
   });
 
@@ -408,8 +460,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const codes = await storage.getAllInvitationCodes();
       res.json(codes);
     } catch (error) {
-      console.error("Codes fetch error:", error);
-      res.status(500).json({ error: "Failed to fetch codes" });
+      console.error("Admin codes error:", error);
+      res.status(500).json({ error: "Failed to load invitation codes" });
     }
   });
 

@@ -56,7 +56,7 @@ export default function AdminDashboard() {
 
   // Check admin authentication status
   const { data: authData, isLoading: authLoading } = useQuery({
-    queryKey: ['/api/admin/me'],
+    queryKey: ['/api/session'],
     retry: false,
   });
 
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
   }, [authData, authLoading]);
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['/api/admin/stats'],
+    queryKey: ['/api/admin/dashboard'],
     retry: false,
   });
 
@@ -93,7 +93,7 @@ export default function AdminDashboard() {
         description: "User has been promoted from waitlist and sent an invitation code.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/waitlist'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/dashboard'] });
     },
     onError: (error) => {
       toast({
@@ -114,7 +114,7 @@ export default function AdminDashboard() {
         description: `Generated ${variables.count} invitation codes successfully.`,
       });
       queryClient.invalidateQueries({ queryKey: ['/api/admin/codes'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/dashboard'] });
     },
     onError: (error) => {
       toast({
@@ -131,7 +131,7 @@ export default function AdminDashboard() {
     },
     onSuccess: () => {
       setIsAuthenticated(true);
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/me'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/session'] });
       toast({
         title: "Login Successful",
         description: "Welcome to the admin dashboard",
@@ -148,7 +148,7 @@ export default function AdminDashboard() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest('POST', '/api/admin/logout');
+      await apiRequest('POST', '/api/logout');
     },
     onSuccess: () => {
       setIsAuthenticated(false);
