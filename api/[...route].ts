@@ -110,11 +110,6 @@ const emailInvitationLimiter = rateLimit({
 // Register all routes (removing /api prefix since Vercel handles it)
 // Routes will be available as /api/* but processed as /* in the function
 
-// Debug route to test if basic routing works
-app.get("/test", (req, res) => {
-  res.json({ message: "API routing is working!", timestamp: new Date().toISOString() });
-});
-
 // Admin login endpoint
 app.post("/admin/login", async (req, res) => {
   try {

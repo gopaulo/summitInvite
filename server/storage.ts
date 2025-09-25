@@ -78,12 +78,11 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     
-    const createdUser = result[0];
-    if (!createdUser) {
+    if (!result || result.length === 0) {
       throw new Error('Failed to create user');
     }
     
-    return createdUser as User;
+    return result[0] as User;
   }
 
   async generateInvitationCodes(assignedToUserId: string, codeCount: number): Promise<InvitationCode[]> {
