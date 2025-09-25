@@ -1,9 +1,5 @@
-import { InsertEmailLog, emailLogs } from "@shared/schema";
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import ws from "ws";
-
-neonConfig.webSocketConstructor = ws;
+import { InsertEmailLog, emailLogs } from "../../shared/schema";
+import { db } from "../db";
 
 interface EmailParams {
   to: string;
@@ -82,14 +78,6 @@ class EmailService {
 
   private async logEmail(params: EmailParams, status: string, errorMessage?: string) {
     try {
-      if (!process.env.DATABASE_URL) {
-        console.warn('DATABASE_URL not set - cannot log email');
-        return;
-      }
-
-      const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-      const db = drizzle(pool);
-      
       const emailLog: InsertEmailLog = {
         toEmail: params.to,
         fromEmail: this.senderEmail,

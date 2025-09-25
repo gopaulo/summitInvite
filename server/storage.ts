@@ -11,7 +11,7 @@ import {
   type InsertWaitlist,
   type EmailLog,
   type InsertEmailLog,
-} from "@shared/schema";
+} from "../shared/schema";
 import { db } from "./db";
 import { eq, desc, sql, and, count, isNull, gt } from "drizzle-orm";
 
@@ -228,7 +228,7 @@ export class DatabaseStorage implements IStorage {
 
   async addToWaitlist(waitlistData: InsertWaitlist): Promise<Waitlist> {
     // Calculate priority score based on company revenue and role
-    const priorityScore = this.calculatePriorityScore(waitlistData.companyRevenue, waitlistData.role);
+    const priorityScore = this.calculatePriorityScore(waitlistData.companyRevenue || waitlistData.companySize || '', waitlistData.role);
     
     const [waitlistEntry] = await db
       .insert(waitlist)
@@ -241,11 +241,11 @@ export class DatabaseStorage implements IStorage {
     return waitlistEntry;
   }
 
-  private calculatePriorityScore(companyRevenue: string, role: string): number {
+  private calculatePriorityScore(companySize: string, role: string): number {
     let score = 0;
     
-    // Company revenue scoring
-    switch (companyRevenue) {
+    // Company revenue scoring (stored as companySize)
+    switch (companySize) {
       case '$5mi+':
         score += 50;
         break;

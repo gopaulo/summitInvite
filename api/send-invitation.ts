@@ -1,12 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { users, invitationCodes } from '../shared/schema';
-import { eq, and, isNull } from "drizzle-orm";
-import { emailService } from '../server/services/emailService';
-import ws from "ws";
+import { storage } from '../server/storage';
 
-neonConfig.webSocketConstructor = ws;
+export const config = { runtime: 'nodejs' };
 
 // Helper function to parse cookies
 function parseCookies(cookieHeader?: string) {
@@ -30,22 +25,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // Check user authentication
     const cookies = parseCookies(req.headers.cookie);
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL must be set");
-    }
-
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const db = drizzle(pool);
-
     const userId = cookies.userId;
     
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const [user] = await db.select().from(users).where(eq(users.id, userId));
-    if (!user) {
-      return res.status(401).json({ error: 'User not found' });
     }
 
     const { email, personalMessage } = req.body;
@@ -54,33 +37,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // Check if user has available invitation codes
-    const [unusedCode] = await db
-      .select()
-      .from(invitationCodes)
-      .where(
-        and(
-          eq(invitationCodes.assignedToUserId, userId),
-          eq(invitationCodes.isUsed, false),
-          isNull(invitationCodes.reservedForEmail)
-        )
-      )
-      .limit(1);
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
 
+    // Get user details
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Reserve an invitation code for this email
+    const unusedCode = await storage.reserveInvitationCode(userId, email);
     if (!unusedCode) {
       return res.status(400).json({ error: 'No available invitation codes' });
     }
 
-    // Reserve the code for the email
-    await db.update(invitationCodes)
-      .set({ 
-        reservedForEmail: email, 
-        reservedAt: new Date() 
-      })
-      .where(eq(invitationCodes.code, unusedCode.code));
-
-    // Create registration URL (template expects registrationUrl, not inviteUrl)
-    const registrationUrl = `https://${process.env.VERCEL_URL || 'localhost:3000'}/register?code=${unusedCode.code}`;
+    // Create registration URL
+    const registrationUrl = `https://${process.env.VERCEL_URL || 'app.thesummit25.com'}/register?code=${unusedCode.code}`;
 
     // Sanitize personal message to prevent HTML injection
     const sanitizedMessage = personalMessage ? 
@@ -89,29 +65,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return entities[match as keyof typeof entities] || match;
       }) : '';
 
-    // Send the referral invitation email
+    // Send the referral invitation email using Brevo API directly
     let emailSent = false;
     try {
-      emailSent = await emailService.sendReferralInvitation(email, {
-        referrerName: `${user.firstName} ${user.lastName}`,
-        referrerCompany: user.company || '',
-        inviteCode: unusedCode.code,
-        registrationUrl: registrationUrl,
-        personalMessage: sanitizedMessage,
-      });
+      if (process.env.BREVO_API_KEY) {
+        const emailResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': process.env.BREVO_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: {
+              email: 'info@thesummit25.com',
+              name: 'The Summit 25',
+            },
+            to: [{
+              email: email,
+            }],
+            subject: `You're Invited to The Summit 25 by ${user.firstName} ${user.lastName}`,
+            htmlContent: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h1 style="color: #2c3e50;">You're Invited to The Summit 25!</h1>
+                <p>${user.firstName} ${user.lastName} from ${user.company || 'their company'} has invited you to join The Summit 25.</p>
+                ${sanitizedMessage ? `<blockquote style="border-left: 3px solid #2c3e50; padding-left: 15px; margin: 20px 0;"><em>${sanitizedMessage}</em></blockquote>` : ''}
+                <p style="margin: 30px 0;"><a href="${registrationUrl}" style="background: #2c3e50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Complete Your Registration</a></p>
+                <p>Your invitation code: <strong>${unusedCode.code}</strong></p>
+                <p>Best regards,<br>The Summit 25 Team</p>
+              </div>
+            `,
+          }),
+        });
+        emailSent = emailResponse.ok;
+      }
     } catch (emailError) {
       console.error('Failed to send referral invitation email:', emailError);
       emailSent = false;
     }
 
-    // If email failed to send, unreserve the code and return error
     if (!emailSent) {
-      await db.update(invitationCodes)
-        .set({ 
-          reservedForEmail: null, 
-          reservedAt: null 
-        })
-        .where(eq(invitationCodes.code, unusedCode.code));
       return res.status(500).json({ error: 'Failed to send invitation email' });
     }
 

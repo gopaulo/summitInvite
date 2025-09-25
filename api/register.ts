@@ -1,14 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { users, invitationCodes } from '../shared/schema';
-import { registrationSchema, type RegistrationData, type InsertUser } from '../shared/schema';
-import { eq, and } from "drizzle-orm";
-import { nanoid } from "nanoid";
-import { emailService } from '../server/services/emailService';
-import ws from "ws";
+import { storage } from '../server/storage';
 
-neonConfig.webSocketConstructor = ws;
+export const config = { runtime: 'nodejs' };
 
 // Helper function to parse cookies
 function parseCookies(cookieHeader?: string) {
@@ -32,103 +25,89 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     // Get validated code from cookie
     const cookies = parseCookies(req.headers.cookie);
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL must be set");
-    }
-
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const db = drizzle(pool);
-
     const validatedCode = cookies.validatedCode;
     
     if (!validatedCode) {
-      return res.status(400).json({ error: "No validated code in session. Please validate your invitation code first." });
+      return res.status(400).json({ error: "Please validate your invitation code first" });
     }
 
-    const validationResult = registrationSchema.safeParse(req.body);
-    if (!validationResult.success) {
-      return res.status(400).json({ 
-        error: "Invalid registration data",
-        details: validationResult.error.format()
-      });
+    const { firstName, lastName, email, company, companyRevenue, role, companyWebsite } = req.body;
+
+    // Basic validation
+    if (!firstName || !lastName || !email || !company || !companyRevenue || !role) {
+      return res.status(400).json({ error: "All required fields must be provided" });
     }
 
-    const registrationData: RegistrationData = validationResult.data;
-
-    // Validate invitation code
-    const [inviteCode] = await db
-      .select()
-      .from(invitationCodes)
-      .where(eq(invitationCodes.code, validatedCode.toUpperCase()));
-    
-    if (!inviteCode || inviteCode.isUsed || 
-        (inviteCode.expiresAt && new Date() > inviteCode.expiresAt)) {
-      return res.status(400).json({ error: "Invitation code has expired or been used" });
+    // Verify invitation code exists and is valid
+    const inviteCode = await storage.validateInvitationCode(validatedCode.toUpperCase());
+    if (!inviteCode) {
+      return res.status(400).json({ error: "Invalid or expired invitation code" });
     }
 
     // Check for existing user
-    const [existingUser] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, registrationData.email));
-      
+    const existingUser = await storage.getUserByEmail(email);
     if (existingUser) {
       return res.status(400).json({ error: "An account with this email already exists" });
     }
-    // Create new user
-    const [newUser] = await db.insert(users).values({
-      firstName: registrationData.firstName,
-      lastName: registrationData.lastName,
-      email: registrationData.email,
-      company: registrationData.company,
-      companyRevenue: registrationData.companyRevenue,
-      role: registrationData.role,
-      companyWebsite: registrationData.companyWebsite,
+
+    // Map form data to match existing database schema
+    const userData = {
+      firstName,
+      lastName,
+      email,
+      company,
+      companySize: companyRevenue, // Map frontend companyRevenue to database companySize
+      role,
+      linkedinUrl: companyWebsite || null, // Map frontend companyWebsite to database linkedinUrl
       invitedBy: inviteCode.assignedToUserId || null
-    }).returning();
+    };
+
+    // Create new user using storage interface
+    const newUser = await storage.createUser(userData);
 
     // Mark invitation code as used
-    await db.update(invitationCodes)
-      .set({ 
-        isUsed: true, 
-        usedByUserId: newUser.id, 
-        usedAt: new Date() 
-      })
-      .where(eq(invitationCodes.code, validatedCode.toUpperCase()));
+    await storage.useInvitationCode(validatedCode.toUpperCase(), newUser.id);
 
-    // Generate invitation codes for new user
-    const newCodes = [];
-    for (let i = 0; i < 5; i++) {
-      const code = nanoid(8).toUpperCase();
-      newCodes.push(code);
-      await db.insert(invitationCodes).values({
-        code,
-        assignedToUserId: newUser.id,
-      });
-    }
+    // Generate 5 invitation codes for new user
+    const newCodes = await storage.generateInvitationCodes(newUser.id, 5);
 
-    // Send registration confirmation email and referral codes email
+    // Send registration confirmation email using Brevo API
     try {
-      await emailService.sendRegistrationConfirmation(newUser.email, {
-        firstName: newUser.firstName || '',
-        lastName: newUser.lastName || '',
-        company: newUser.company || '',
-        email: newUser.email,
-        dashboardUrl: `https://${process.env.VERCEL_URL || 'localhost:3000'}/dashboard`,
-      });
-      
-      // Send referral codes email
-      await emailService.sendReferralCodes(newUser.email, {
-        firstName: newUser.firstName || '',
-        codes: newCodes.join(', '),
-        dashboardUrl: `https://${process.env.VERCEL_URL || 'localhost:3000'}/dashboard`,
-      });
+      if (process.env.BREVO_API_KEY) {
+        await fetch('https://api.brevo.com/v3/smtp/email', {
+          method: 'POST',
+          headers: {
+            'api-key': process.env.BREVO_API_KEY,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sender: {
+              email: 'info@thesummit25.com',
+              name: 'The Summit 25',
+            },
+            to: [{
+              email: newUser.email,
+            }],
+            subject: 'Welcome to The Summit 25!',
+            htmlContent: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h1 style="color: #2c3e50;">Welcome to The Summit 25!</h1>
+                <p>Hi ${newUser.firstName || 'there'},</p>
+                <p>Your registration is complete! You now have access to your dashboard where you can invite others.</p>
+                <p>Your invitation codes: <strong>${newCodes.map(c => c.code).join(', ')}</strong></p>
+                <p><a href="https://${process.env.VERCEL_URL || 'app.thesummit25.com'}/dashboard" style="background: #2c3e50; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">Access Your Dashboard</a></p>
+                <p>Best regards,<br>The Summit 25 Team</p>
+              </div>
+            `,
+          }),
+        });
+      }
     } catch (emailError) {
       console.error('Failed to send registration emails:', emailError);
       // Don't fail registration if email fails
     }
 
-    // Set user session cookie with proper security attributes
+    // Set user session cookie
     const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
     res.setHeader('Set-Cookie', [
       `userId=${newUser.id}; HttpOnly${secureFlag}; SameSite=Lax; Path=/; Max-Age=2592000`,
@@ -143,7 +122,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         lastName: newUser.lastName,
         email: newUser.email
       },
-      invitationCodes: newCodes.map(code => ({ code }))
+      invitationCodes: newCodes.map(code => ({ code: code.code }))
     });
 
   } catch (error) {

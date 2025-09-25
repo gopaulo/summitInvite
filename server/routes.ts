@@ -9,7 +9,7 @@ import {
   type RegistrationData,
   type WaitlistData,
   type InsertUser,
-} from "@shared/schema";
+} from "../shared/schema";
 import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import { verifyRecaptcha } from "./utils/recaptcha";
@@ -252,9 +252,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName: validatedData.firstName,
         lastName: validatedData.lastName,
         company: validatedData.company,
-        companyRevenue: validatedData.companyRevenue,
+        companySize: validatedData.companyRevenue, // Map revenue to size for users table
         role: validatedData.role,
-        companyWebsite: validatedData.companyWebsite,
+        linkedinUrl: validatedData.companyWebsite, // Map website to linkedinUrl
         status: 'registered',
         invitedBy: inviteCode.assignedToUserId,
       });
@@ -319,7 +319,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email already registered or in waitlist" });
       }
 
-      const waitlistEntry = await storage.addToWaitlist(validatedData);
+      // Map form data to waitlist schema requirements
+      const waitlistData = {
+        ...validatedData,
+        companySize: validatedData.companyRevenue, // Required field
+        linkedinUrl: validatedData.companyWebsite, // Map website to linkedinUrl
+      };
+      
+      const waitlistEntry = await storage.addToWaitlist(waitlistData);
 
       // Send waitlist confirmation email
       await emailService.sendWaitlistConfirmation(waitlistEntry.email, {
@@ -472,7 +479,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const csvHeader = 'First Name,Last Name,Email,Company,Company Revenue,Role,Website,Motivation,Priority Score,Created At\n';
       const csvRows = waitlistData.map(entry => 
-        `"${entry.firstName}","${entry.lastName}","${entry.email}","${entry.company}","${entry.companyRevenue}","${entry.role}","${entry.companyWebsite || ''}","${entry.motivation.replace(/"/g, '""')}",${entry.priorityScore},"${entry.createdAt}"`
+        `"${entry.firstName}","${entry.lastName}","${entry.email}","${entry.company}","${entry.companyRevenue || entry.companySize}","${entry.role}","${entry.linkedinUrl || ''}","${entry.motivation.replace(/"/g, '""')}",${entry.priorityScore},"${entry.createdAt}"`
       ).join('\n');
       
       const csv = csvHeader + csvRows;

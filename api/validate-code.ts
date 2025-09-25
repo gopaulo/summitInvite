@@ -1,11 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { Pool, neonConfig } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-serverless";
-import { invitationCodes } from '../shared/schema';
-import { eq } from "drizzle-orm";
-import ws from "ws";
+import { storage } from '../server/storage';
 
-neonConfig.webSocketConstructor = ws;
+export const config = { runtime: 'nodejs' };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -13,39 +9,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL must be set");
-    }
-
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    const db = drizzle(pool);
-
     const { code } = req.body;
     
     if (!code) {
       return res.status(400).json({ error: "Invitation code is required" });
     }
 
-    // Validate invitation code
-    const [inviteCode] = await db
-      .select()
-      .from(invitationCodes)
-      .where(eq(invitationCodes.code, code.toUpperCase()));
-    
-    const isValid = inviteCode && !inviteCode.isUsed && 
-      (!inviteCode.expiresAt || new Date() < inviteCode.expiresAt);
+    // Validate invitation code using storage interface
+    const inviteCode = await storage.validateInvitationCode(code.toUpperCase());
+    const isValid = !!inviteCode;
     
     if (isValid) {
       // Set validation cookie
+      const secureFlag = process.env.NODE_ENV === 'production' ? '; Secure' : '';
       res.setHeader('Set-Cookie', [
-        `validatedCode=${code}; HttpOnly; Secure=${process.env.NODE_ENV === 'production'}; SameSite=Lax; Path=/; Max-Age=1800`
+        `validatedCode=${code.toUpperCase()}; HttpOnly${secureFlag}; SameSite=Lax; Path=/; Max-Age=3600`
       ]);
-      res.json({ valid: true, message: "Code validated successfully" });
-    } else {
-      res.status(400).json({ error: "Invalid or expired invitation code" });
     }
+
+    res.json({ 
+      valid: isValid,
+      message: isValid ? "Code validated successfully" : "Invalid or expired invitation code"
+    });
+
   } catch (error) {
     console.error("Code validation error:", error);
-    res.status(500).json({ error: "Validation failed" });
+    res.status(500).json({ error: "Failed to validate code" });
   }
 }
